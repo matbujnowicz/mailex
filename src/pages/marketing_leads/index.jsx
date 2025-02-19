@@ -18,6 +18,7 @@ import {
 } from "@mui/material";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { routes } from "../../app_router";
+import { getEmail } from "../../api/api";
 
 const MarketingLeads = () => {
   const [leads, setLeads] = useState([]);
@@ -86,23 +87,28 @@ const MarketingLeads = () => {
 
   const handleEmailGeneration = async () => {
     setLoading(true);
-
+    setError(null);
+  
     try {
-      const emails = selected.map((index) => ({
-        lead: leads[index],
-        email: generateEmail(leads[index], offer),
-      }));
+      const emails = await Promise.all(
+        selected.map(async (index) => ({
+          lead: leads[index],
+          email: await generateEmail(leads[index]), // Ensure async handling
+        }))
+      );
+  
       const docRef = doc(db, "marketings", id);
       await updateDoc(docRef, { emails });
+  
       navigate(routes.marketingEmails.replace(":id", id));
     } catch (error) {
       setError("Failed to generate emails");
-      console.error(error);
+      console.error("Email generation error:", error);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
-
+  
   return (
     <Container component="main">
       {error && (
@@ -207,6 +213,40 @@ const MarketingLeads = () => {
 
 export default MarketingLeads;
 
-const generateEmail = (lead, offer) => {
+// mock hardcoded mail
+const generateEmailold = (lead, offer) => {
   return `Dear ${lead.name}, \nWe saw your linked in post. We are interested in your profile. We offer: ${offer}. \nBest regards, \nYour future employer`;
 };
+
+// {lead.name}
+// {lead.organization_name}
+// {lead.linkedin_url}
+// {lead.email}
+// {lead.country}
+// {lead.city}
+
+
+
+const generateEmail = async (lead) => {
+
+  const data={
+    linkedinURL:lead.linkedin_url,
+    sender_name:"John cron",
+    sender_details:"CEO at mailex, expertise in digitall marketing "
+
+  }
+  try {
+    const completeMail= await getEmail(data)
+    console.log(completeMail)
+    // replace <br> to \n
+    const mail=completeMail.data.body.replace(/<br>/g, "\n")
+    
+
+    return mail
+  } catch (error) {
+    console.log(error);
+    
+  }
+  
+
+  };

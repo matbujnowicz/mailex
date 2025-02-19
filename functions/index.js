@@ -6,12 +6,13 @@ const OpenAI = require('openai');
 dotenv.config();
 
 const client = new OpenAI({
-  apiKey: 'process.env.OPENAI_API_KEY',
-  organization: process.env.ORG_ID, // This is the default and can be omitted
+  apiKey: process.env.OPENAI_API_KEY,
+  organization: process.env.ORG_ID,
 });
 
 exports.getProspects = onRequest(async (request, response) => {
   const { keywords, positions, locations } = request.body;
+  console.log()
 
   if (!keywords || !positions || !locations) {
     return response.status(400).json({
@@ -37,35 +38,38 @@ exports.getProspects = onRequest(async (request, response) => {
 
   let orgUrl = 'https://api.apollo.io/api/v1/mixed_companies/search?';
 
-  for (let i = 0; i < keywords.length; i++) {
-    orgUrl += `q_organization_keyword_tags[]=${encodeURIComponent(keywords[i])}&`;
-  }
+  // for (let i = 0; i < keywords.length; i++) {
+  //   orgUrl += `q_organization_keyword_tags[]=${encodeURIComponent(keywords[i])}&`;
+  // }
 
-  for (let i = 0; i < locations.length; i++) {
-    orgUrl += `organization_locations[]=${encodeURIComponent(locations[i])}&`;
-  }
+  // for (let i = 0; i < locations.length; i++) {
+  //   orgUrl += `organization_locations[]=${encodeURIComponent(locations[i])}&`;
+  // }
 
   let peopleUrl =
-    'https://api.apollo.io/api/v1/mixed_people/search?contact_email_status[]=verified&contact_email_status[]=likely%20to%20engage';
+    'https://api.apollo.io/api/v1/mixed_people/search?contact_email_status[]=verified&contact_email_status[]=likely%20to%20engage&';
 
   for (let i = 0; i < positions.length; i++) {
     peopleUrl += `person_titles[]=${encodeURIComponent(positions[i])}&`;
   }
+  for (let i = 0; i < locations.length; i++) {
+    peopleUrl += `organization_locations[]=${encodeURIComponent(locations[i])}&`;
+  }
 
   try {
-    const orgResult = await axios(orgUrl, options);
+    // const orgResult = await axios(orgUrl, options);
 
-    if (orgResult.data.organizations.length === 0) {
-      return response.status(404).json({
-        error: 'No organizations found',
-      });
-    }
+    // if (orgResult.data.organizations.length === 0) {
+    //   return response.status(404).json({
+    //     error: 'No organizations found',
+    //   });
+    // }
 
-    const organizations = orgResult.data.organizations.map((org) => ({ name: org.name, id: org.id }));
+    // const organizations = orgResult.data.organizations.map((org) => ({ name: org.name, id: org.id }));
 
-    for (let i = 0; i < organizations.length; i++) {
-      peopleUrl += `organization_ids[]=${encodeURIComponent(organizations[i].id)}&`;
-    }
+    // for (let i = 0; i < organizations.length; i++) {
+    //   peopleUrl += `organization_ids[]=${encodeURIComponent(organizations[i].id)}&`;
+    // }
 
     const peopleResult = await axios(peopleUrl, options);
 
@@ -76,6 +80,7 @@ exports.getProspects = onRequest(async (request, response) => {
         error: 'No people found',
       });
     }
+    console.log("done")
 
     const people = peopleResult.data.people.map((person) => ({
       name: person.name,
@@ -90,6 +95,7 @@ exports.getProspects = onRequest(async (request, response) => {
     return response.json(people);
   } catch (error) {
     console.error('Getting prospects', { error: error });
+
     response.status(500).json({ error: 'Failed to fetch data' });
   }
 });
@@ -222,12 +228,12 @@ Focus on connection and shared interests, not pitching services.
   try {
     const res = await client.chat.completions.create({
       messages: [{ role: 'user', content: email_prompt }],
-      model: 'gpt-4', // Fixed model name from 'gpt-4o' to 'gpt-4'
+      model: 'gpt-4',
     });
     return res.choices[0].message.content;
   } catch (error) {
     console.error('Error in API call:', error);
-    throw error; // Re-throw to handle in the calling function
+    throw error;
   }
 }
 
@@ -295,7 +301,7 @@ exports.generateMail = onRequest(async (req, res) => {
   try {
     const { linkedinURL, sender_name, sender_details } = req.body;
 
-    // Await all promises properly
+
     const linkedinData = await getLinkedinData(linkedinURL);
     console.log(linkedinData);
     const firstPost = await getFirstPost(linkedinData.username);

@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { useFirebase } from "../../firebase_context";
 import { useNavigate, useParams } from "react-router-dom";
-import { Container, Snackbar, Alert, Typography, Button } from "@mui/material";
+import { Container, Snackbar, Alert, Typography } from "@mui/material";
 import { doc, getDoc } from "firebase/firestore";
 import { routes } from "../../app_router";
-
+import { Box, TextField, OutlinedInput, InputAdornment, IconButton, Button, FormControl, InputLabel } from "@mui/material";
+import { Visibility, VisibilityOff, AccountCircle } from "@mui/icons-material";
+import { sendEmail } from "../../api/api";
 const MarketingEmails = () => {
   const [emails, setEmails] = useState([]);
   const [name, setName] = useState("");
@@ -16,6 +18,11 @@ const MarketingEmails = () => {
   const navigate = useNavigate();
 
   const { db, user } = useFirebase();
+
+  // new states
+  const [senderEmail, setSenderEmail] = useState(null)
+  const [appPassword, setAppPassword] = useState(null)
+  const [showPassword, setShowPassword] = useState(null)
 
   useEffect(() => {
     if (!user) {
@@ -29,11 +36,12 @@ const MarketingEmails = () => {
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           const data = docSnap.data();
+         // console.log(data)
           setEmails(data.emails);
           setName(data.name);
         } else {
           setError("Marketing not found");
-          console.log("No such document!");
+         // console.log("No such document!");
         }
       } catch (error) {
         setError("Failed to fetch marketing data");
@@ -46,13 +54,68 @@ const MarketingEmails = () => {
 
   const handleSendEmails = async () => {
     setLoading(true);
+  
+    try {
+      const docRef = doc(db, "marketings", id);
+      const docSnap = await getDoc(docRef);
+  
+      if (!docSnap.exists()) {
+        alert("No Email Found");
+        setLoading(false);
+        return;
+      }
+  
+      const data = docSnap.data();
+     // console.log("awkkkkk")
+      //console.log(data.emails);
+  
+      const mailPrep = data.emails.map((item) => {
+        return {
+          to_email: item.lead.email,
+          body: item.email,
+          subject: `${item.lead.name}, A special message for you`,
+          sender_mail: senderEmail,  // Replace with the correct sender email variable
+          appPassword: appPassword, // Ensure this is correctly assigned
+        };
+      });
+      
+      console.log(mailPrep);
+  
+      // Send emails concurrently and wait for all to complete
+      const responses = await Promise.allSettled(mailPrep.map((item) => sendEmail(item)));
+  
+      let num_mails_sent = 0;
+      let num_mails_notsent = 0;
 
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
+  
+      responses.forEach((result) => {
+        if (result.status === "fulfilled" && result.value.status === 200) {
+          num_mails_sent++;
+        } else {
+          num_mails_notsent++;
+        }
+      });
+     // console.log(num_mails_sent)
+  
+      // Show the result message
+      alert(`Sent ${num_mails_sent} emails and failed to send ${num_mails_notsent} emails`);
+    } catch (error) {
+      console.error("Error sending emails:", error);
+    }
+  
     setLoading(false);
   };
+  
+  const handleClickShowPassword = () => setShowPassword((show) => !show);
 
-  console.log(emails);
+  const handleMouseDownPassword = (event) => {
+    event.preventDefault();
+  };
+
+  const handleMouseUpPassword = (event) => {
+    event.preventDefault();
+  };
+ // console.log(emails);
 
   return (
     <Container component="main">
@@ -125,15 +188,87 @@ const MarketingEmails = () => {
             </Typography>
           </Container>
         ))}
-        <Button
-          variant="contained"
-          color="primary"
-          style={{ marginTop: "5vh" }}
-          onClick={handleSendEmails}
-          disabled={loading}
+
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 3,
+            p: 4,
+            maxWidth: 800,
+            mx: "auto"
+          }}
         >
-          {loading ? "Loading..." : "SEND"}
-        </Button>
+
+          <Typography
+            component="h3"
+            variant="h5"
+            style={{ marginTop: "5vh", marginBottom: "5vh", color: 'royalblue' }}
+          >
+            Email Campaign Dashboard
+          </Typography>
+          {/* Email & Password Container */}
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 5,
+              width: "100%",
+              justifyContent: "center"
+            }}
+          >
+            {/* Email Input */}
+            <Box sx={{ display: "flex", alignItems: "center" }}>
+              <AccountCircle sx={{ color: "action.active", fontSize: 48, mr: 1 }} />
+              <TextField
+                id="senderEmail"
+                label="Email Address"
+                variant="standard"
+                onChange={(e) => { setSenderEmail((e.target.value)) }}
+                sx={{ fontSize: 20, width: 250 }}
+              />
+            </Box>
+
+            {/* Password Input with Label */}
+            <FormControl sx={{ width: 250 }}>
+              <InputLabel htmlFor="outlined-adornment-password">Password</InputLabel>
+              <OutlinedInput
+                id="outlined-adornment-password"
+                type={showPassword ? "text" : "password"}
+                label="Password"
+                onChange={(e) => { setAppPassword(e.target.value) }}
+
+                sx={{ fontSize: 20 }}
+                endAdornment={
+                  <InputAdornment position="end">
+                    <IconButton
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      onClick={handleClickShowPassword}
+                      edge="end"
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                }
+              />
+            </FormControl>
+          </Box>
+
+          {/* Send Button */}
+          <Button
+            variant="contained"
+            color="primary"
+            sx={{ mt: 3, width: "60%", fontSize: 18, py: 1 }}
+            onClick={handleSendEmails}
+
+            disabled={loading}
+          >
+            {loading ? "Loading..." : "SEND"}
+          </Button>
+        </Box>
+
       </Container>
     </Container>
   );
