@@ -7,7 +7,7 @@ dotenv.config();
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-  organization: process.env.ORG_ID,
+  organization: process.env.ORG_ID, // This is the default and can be omitted
 });
 
 exports.getProspects = onRequest(async (request, response) => {
